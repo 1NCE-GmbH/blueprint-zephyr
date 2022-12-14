@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2020 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menu "UDP Sample Settings"
+
+
+
+config UDP_DATA_UPLOAD_FREQUENCY_SECONDS
+	int "Upload Frequency in Seconds"
+	default 20
+
+config UDP_SERVER_HOSTNAME
+	string "UDP server IP address"
+	default "udp.os.1nce.com"
+
+config UDP_SERVER_PORT
+	int "UDP server port number"
+	default "4445"
+	
+if !NCE_ENERGY_SAVER
+
+config PAYLOAD
+	string "Message to send to Broker"
+	default "Hi, this is a test message!"
+endif
+
+if NCE_ENERGY_SAVER	
+
+config PAYLOAD_DATA_SIZE
+	int "payload data size"
+	default 10
+endif	
+
+
+
+config UDP_PSM_ENABLE
+	bool "Enable LTE Power Saving Mode"
+	default n
+
+config UDP_EDRX_ENABLE
+	bool "Enable LTE enhanced Discontinuous Reception"
+
+config UDP_RAI_ENABLE
+	bool "Enable LTE Release Assistance Indication"
+
+endmenu
+
+module = UDP
+module-str = UDP sample
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu

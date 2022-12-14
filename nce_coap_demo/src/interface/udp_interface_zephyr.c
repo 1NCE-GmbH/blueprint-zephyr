@@ -60,12 +60,12 @@ int nce_os_udp_send( OSNetwork_t osnetwork,
                      size_t bytesToSend )
 {
     int flags = 0;
-    int bytes;
+    int ret;
 
-    err = zsock_send( osnetwork->os_socket, pBuffer, bytesToSend, flags );
-    NceOSLogDebug( "UDP Socket Send: %d\n", err );
+    ret = zsock_send( osnetwork->os_socket, pBuffer, bytesToSend, flags );
+    NceOSLogDebug( "UDP Socket Send: %d\n", ret );
 
-    return err;
+    return ret;
 }
 
 
@@ -74,12 +74,12 @@ int nce_os_udp_recv( OSNetwork_t osnetwork,
                      size_t bytesToRecv )
 {
     int flags = 0;
-    int err;
+    int ret;
 
-    err = zsock_recv( osnetwork->os_socket, pBuffer, bytesToRecv, flags );
-    NceOSLogDebug( "UDP Socket Receive: %d\n", err );
+    ret = zsock_recv( osnetwork->os_socket, pBuffer, bytesToRecv, flags );
+    NceOSLogDebug( "UDP Socket Receive: %d\n", ret );
 
-    return err;
+    return ret;
 }
 
 int nce_os_udp_disconnect( OSNetwork_t osnetwork )

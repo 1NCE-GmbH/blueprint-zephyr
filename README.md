@@ -22,7 +22,7 @@ Follow this guide to:
 * Build, flash, and run Secure CoAP Application.
 
 ### Prerequisites
-* [nRF Connect SDK (v2.1.1)](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.1.1/nrf/gs_assistant.html)
+* [nRF Connect SDK (v2.2.0)](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.2.0/nrf/gs_assistant.html)
 * [VS Code)](https://code.visualstudio.com/)
 * [West](https://docs.zephyrproject.org/3.1.0/develop/west/install.html)
 
@@ -36,9 +36,9 @@ Quick Setup `VS Code`
 NOTE: It is recommended to extract the Zephyr SDK at `%HOMEPATH%`
 
 * Open the `west.yml`
-`%HOMEPATH%\ncs\v2.1.1\nrf\west.yml`
+`%HOMEPATH%\ncs\v2.2.0\nrf\west.yml`
 * Add in `name-allowlist` name of our sdk module `nce-sdk` (NOTE: the list with alphabetical order).
-*  Go to `%HOMEPATH%\ncs\v2.1.1\zephyr\submanifests` rename `example.yaml.sample` to `example.yaml` and paste the following code on it.
+*  Go to `%HOMEPATH%\ncs\v2.2.0\zephyr\submanifests` rename `example.yaml.sample` to `example.yaml` and paste the following code on it.
 ```
 manifest:
 	projects:
@@ -48,7 +48,7 @@ manifest:
 ```
 * Open a `cmd.exe` window by pressing the Windows key typing “cmd.exe”
 ```
-cd %HOMEPATH%\ncs\v2.1.1
+cd %HOMEPATH%\ncs\v2.2.0
 west update
 ```
 ## Running the 1NCE Zephyr blueprint

@@ -10,7 +10,7 @@
     #include <nce_iot_c_sdk.h>
 #endif
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 #include <stdio.h>
 #include <modem/lte_lc.h>
 #include <zephyr/net/socket.h>

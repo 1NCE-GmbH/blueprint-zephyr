@@ -1,0 +1,22 @@
+menu "1NCE LwM2M client sample"
+
+
+config APP_LWM2M_PSK
+	string "LwM2M pre-shared key for communication"
+	default ""
+	help
+	  Pre Shared Key must be identical to the PSK registered with the device on the LwM2M server.
+	  Use the hexadecimal representation.
+
+config NCE_ICCID
+	string "ICCID is used as endpoint to identify the device on the LwM2M server."
+	default ""
+	help
+	  Integrated Circuit Card Identifier must be identical to a SIM card. 
+	  It is used to authenticate the SIM card and as endpoint to identify the device on the LwM2M server.
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+

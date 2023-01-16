@@ -12,9 +12,8 @@ The configuration options for LwM2M sample are:
 `CONFIG_LWM2M_CLIENT_UTILS_SERVER` is set to 1NCE endpoint with port.
 
 
-`CONFIG_APP_ENDPOINT_PREFIX` the ICCID of 1NCE SIM Card.
+`CONFIG_NCE_ICCID` the ICCID of 1NCE SIM Card.
 
-`CONFIG_APP_LWM2M_PSK` should be empty since we connect with unsecure port of LwM2M.
 
 ## Asking for Help
 

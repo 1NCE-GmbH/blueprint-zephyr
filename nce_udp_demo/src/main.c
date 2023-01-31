@@ -10,6 +10,19 @@
 #include <zephyr/net/socket.h>
 #include <nce_iot_c_sdk.h>
 
+#if defined(CONFIG_BOARD_THINGY91_NRF9160_NS)
+#include <zephyr/drivers/gpio.h>
+/*
+ * Thingy:91 LEDs
+ */
+static struct gpio_dt_spec ledRed = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led0), gpios,
+						     {0});
+static struct gpio_dt_spec ledGreen = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led1), gpios,
+						     {0});
+static struct gpio_dt_spec ledBlue = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led2), gpios,
+						     {0});
+#endif
+
 LOG_MODULE_REGISTER( UDP_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 #define UDP_IP_HEADER_SIZE 28
 
@@ -22,7 +35,56 @@ static struct addrinfo hints =
     .ai_socktype = SOCK_DGRAM,
 };
 
+
+
 K_SEM_DEFINE(lte_connected, 0, 1);
+
+#if defined(CONFIG_BOARD_THINGY91_NRF9160_NS)
+void configureLeds() {
+	int ret = 0;
+	if (ledRed.port && !device_is_ready(ledRed.port)) {
+		printk("Error %d: LED device %s is not ready; ignoring it\n",
+		       ret, ledRed.port->name);
+		ledRed.port = NULL;
+	}
+	if (ledRed.port) {
+		ret = gpio_pin_configure_dt(&ledRed, GPIO_OUTPUT);
+		if (ret != 0) {
+			printk("Error %d: failed to configure LED device %s pin %d\n",
+			       ret, ledRed.port->name, ledRed.pin);
+			ledRed.port = NULL;
+		}
+	}
+
+	if (ledGreen.port && !device_is_ready(ledGreen.port)) {
+		printk("Error %d: LED device %s is not ready; ignoring it\n",
+		       ret, ledGreen.port->name);
+		ledGreen.port = NULL;
+	}
+	if (ledGreen.port) {
+		ret = gpio_pin_configure_dt(&ledGreen, GPIO_OUTPUT);
+		if (ret != 0) {
+			printk("Error %d: failed to configure LED device %s pin %d\n",
+			       ret, ledGreen.port->name, ledGreen.pin);
+			ledGreen.port = NULL;
+		}
+	}
+
+	if (ledBlue.port && !device_is_ready(ledBlue.port)) {
+		printk("Error %d: LED device %s is not ready; ignoring it\n",
+		       ret, ledBlue.port->name);
+		ledBlue.port = NULL;
+	}
+	if (ledBlue.port) {
+		ret = gpio_pin_configure_dt(&ledBlue, GPIO_OUTPUT);
+		if (ret != 0) {
+			printk("Error %d: failed to configure LED device %s pin %d\n",
+			       ret, ledBlue.port->name, ledBlue.pin);
+			ledBlue.port = NULL;
+		}
+	}
+}
+#endif
 
 static void server_transmission_work_fn(struct k_work *work)
 {
@@ -53,6 +115,15 @@ static void server_transmission_work_fn(struct k_work *work)
 		printk("Failed to transmit UDP packet, %d\n", errno);
 		return;
 	}
+
+	#if defined(CONFIG_BOARD_THINGY91_NRF9160_NS)
+	if (ledBlue.port) {
+		gpio_pin_set_dt(&ledBlue, 0);
+	}
+	if (ledGreen.port) {
+		gpio_pin_set_dt(&ledGreen, 100);
+	}
+	#endif
 
 	k_work_schedule(&server_transmission_work,
 			K_SECONDS(CONFIG_UDP_DATA_UPLOAD_FREQUENCY_SECONDS));
@@ -236,7 +307,15 @@ void main(void)
 {
 	int err;
 
-	printk("UDP sample has started\n");
+	#if defined(CONFIG_BOARD_THINGY91_NRF9160_NS)
+	configureLeds();
+	k_sleep(K_SECONDS(10));
+	if (ledRed.port) {
+		gpio_pin_set_dt(&ledRed, 100);
+	}
+	#endif
+
+	printk("1NCE UDP sample has started\n");
 
 	work_init();
 
@@ -254,10 +333,21 @@ void main(void)
 		       err);
 	}
 
+	printk("Connecting... \n");
+
 	modem_connect();
 
 	k_sem_take(&lte_connected, K_FOREVER);
 #endif
+
+	#if defined(CONFIG_BOARD_THINGY91_NRF9160_NS)
+	if (ledRed.port) {
+		gpio_pin_set_dt(&ledRed, 0);
+	}
+	if (ledBlue.port) {
+		gpio_pin_set_dt(&ledBlue, 100);
+	}
+	#endif
 
 	err = server_init();
 	if (err) {

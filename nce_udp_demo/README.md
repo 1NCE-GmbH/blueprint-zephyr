@@ -4,6 +4,8 @@
 
 1NCE Zephyr UDP Demo allows customers to communicate with 1NCE endpoints via UDP Protocol, and it can send compressed payload using the Energy Saver feature. 
 
+With `Thingy:91`, the LED colors indicate the following status: `RED` -> Connecting, `BLUE` -> Network connection established, `GREEN` -> Message Sent to 1NCE OS 
+
  ## Using 1NCE Energy saver
  The demo can send optimized payload using 1NCE Energy saver. To enable this feature, add the following flag to `prj.conf`
 

@@ -15,6 +15,19 @@
     #include <zephyr/net/tls_credentials.h>
 #endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
 
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    #include <zephyr/drivers/gpio.h>
+
+/*
+ * Thingy:91 LEDs
+ */
+static struct gpio_dt_spec ledRed = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led0 ), gpios,
+                                                         { 0 } );
+static struct gpio_dt_spec ledGreen = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led1 ), gpios,
+                                                           { 0 } );
+static struct gpio_dt_spec ledBlue = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led2 ), gpios,
+                                                          { 0 } );
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 
 LOG_MODULE_REGISTER( COAP_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 
@@ -264,6 +277,17 @@ static void coap_transmission_work_fn( struct k_work * work )
     {
         LOG_INF( "\nCoAP client POST SUCCESS \n" );
         LOG_INF( "Waiting... \n" );
+        #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+        if( ledBlue.port )
+        {
+            gpio_pin_set_dt( &ledBlue, 0 );
+        }
+
+        if( ledGreen.port )
+        {
+            gpio_pin_set_dt( &ledGreen, 100 );
+        }
+        #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
         k_work_schedule( &coap_transmission_work,
                          K_SECONDS( CONFIG_COAP_DATA_UPLOAD_FREQUENCY_SECONDS ) );
     }
@@ -274,9 +298,81 @@ static void work_init( void )
                            coap_transmission_work_fn );
 }
 
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+void configureLeds()
+{
+    int ret = 0;
+
+    if( ledRed.port && !device_is_ready( ledRed.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledRed.port->name );
+        ledRed.port = NULL;
+    }
+
+    if( ledRed.port )
+    {
+        ret = gpio_pin_configure_dt( &ledRed, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledRed.port->name, ledRed.pin );
+            ledRed.port = NULL;
+        }
+    }
+
+    if( ledGreen.port && !device_is_ready( ledGreen.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledGreen.port->name );
+        ledGreen.port = NULL;
+    }
+
+    if( ledGreen.port )
+    {
+        ret = gpio_pin_configure_dt( &ledGreen, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledGreen.port->name, ledGreen.pin );
+            ledGreen.port = NULL;
+        }
+    }
+
+    if( ledBlue.port && !device_is_ready( ledBlue.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledBlue.port->name );
+        ledBlue.port = NULL;
+    }
+
+    if( ledBlue.port )
+    {
+        ret = gpio_pin_configure_dt( &ledBlue, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledBlue.port->name, ledBlue.pin );
+            ledBlue.port = NULL;
+        }
+    }
+}
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 void main( void )
 {
     LOG_INF( "1NCE CoAP client sample started\n\r" );
+    #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    configureLeds();
+    k_sleep( K_SECONDS( 10 ) );
+
+    if( ledRed.port )
+    {
+        gpio_pin_set_dt( &ledRed, 100 );
+    }
+    #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
     #if !defined( CONFIG_NRF_MODEM_LIB_SYS_INIT )
     err = nrf_modem_lib_init( NORMAL_MODE );
 
@@ -355,6 +451,17 @@ void main( void )
         }
     }
     #endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
+    #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    if( ledRed.port )
+    {
+        gpio_pin_set_dt( &ledRed, 0 );
+    }
+
+    if( ledBlue.port )
+    {
+        gpio_pin_set_dt( &ledBlue, 100 );
+    }
+    #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 
     err = zsock_getaddrinfo( CONFIG_COAP_SERVER_HOSTNAME, NULL, &hints, &res );
 

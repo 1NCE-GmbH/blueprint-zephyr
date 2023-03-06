@@ -24,21 +24,13 @@ if NCE_DEVICE_AUTHENTICATOR
 config NCE_ENABLE_DTLS
 	bool
 	default y
-	select NET_SOCKETS_SOCKOPT_TLS
-	select NET_SOCKETS_ENABLE_DTLS
-	select TLS_CREDENTIALS
-	select NRF_SECURITY
-	select NORDIC_SECURITY_BACKEND
-	select MBEDTLS
-	select MBEDTLS_TLS_LIBRARY
-	select MBEDTLS_SSL_PROTO_TLS1_2
-	select MBEDTLS_SSL_PROTO_DTLS
-config MBEDTLS_SSL_OUT_CONTENT_LEN
-	int
-	default 4096
-config MBEDTLS_SSL_IN_CONTENT_LEN
-	int
-	default 4096
+config DTLS_SECURITY_TAG
+	int "DTLS TAG that will be used to store the received credentials"
+	default 1111
+
+config OVERWRITE_CREDENTIALS_IF_EXISTS
+	bool "If the DTLS TAG already exists in the modem, it will be overwritten with the new credentials"
+	default y
 endif
 
 

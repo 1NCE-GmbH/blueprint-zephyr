@@ -9,9 +9,25 @@
 #include <udp_interface_zephyr.h>
 #include <zephyr/logging/log.h>
 
-#if defined(CONFIG_NCE_ENABLE_DTLS)
-#include <zephyr/net/tls_credentials.h>
-#endif
+#if defined( CONFIG_NCE_ENABLE_DTLS )
+    #include <modem/modem_key_mgmt.h>
+    #include <nrf_modem_at.h>
+    #include <zephyr/net/tls_credentials.h>
+#endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
+
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    #include <zephyr/drivers/gpio.h>
+
+/*
+ * Thingy:91 LEDs
+ */
+static struct gpio_dt_spec ledRed = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led0 ), gpios,
+                                                         { 0 } );
+static struct gpio_dt_spec ledGreen = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led1 ), gpios,
+                                                           { 0 } );
+static struct gpio_dt_spec ledBlue = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led2 ), gpios,
+                                                          { 0 } );
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 
 LOG_MODULE_REGISTER( COAP_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 
@@ -21,15 +37,14 @@ LOG_MODULE_REGISTER( COAP_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 #define APP_COAP_VERSION             1
 #define MAX_COAP_MSG_LEN             256
 
-#if defined(CONFIG_NCE_ENABLE_DTLS)
+#if defined( CONFIG_NCE_ENABLE_DTLS )
 /* Security tag for DTLS */
-#define TLS_SEC_TAG                  99
 const sec_tag_t tls_sec_tag[] =
 {
-    TLS_SEC_TAG,
+    CONFIG_DTLS_SECURITY_TAG,
 };
 DtlsKey_t nceKey = { 0 };
-#endif
+#endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
 
 static int sock;
 int err;
@@ -47,28 +62,40 @@ struct addrinfo hints =
 
 static struct k_work_delayable coap_transmission_work;
 
-#if defined(CONFIG_NCE_ENABLE_DTLS)
-/* Setup DTLS options on a given socket */
+#if defined( CONFIG_NCE_ENABLE_DTLS )
+
+/* Store DTLS Credentials in the modem */
+int store_credentials( void )
+{
+    int err;
+    char psk_hex[ 40 ];
+    int cred_len;
+
+    /* Convert PSK to HEX */
+    cred_len = bin2hex( nceKey.Psk, strlen( nceKey.Psk ), psk_hex, sizeof( psk_hex ) );
+
+    if( cred_len == 0 )
+    {
+        LOG_ERR( "PSK is too large to convert (%d)", -EOVERFLOW );
+        return -EOVERFLOW;
+    }
+
+    /* Store DTLS Credentials */
+    err = modem_key_mgmt_write( CONFIG_DTLS_SECURITY_TAG, MODEM_KEY_MGMT_CRED_TYPE_PSK, psk_hex, sizeof( psk_hex ) );
+    LOG_DBG( "psk status: %d\n", err );
+
+    err = modem_key_mgmt_write( CONFIG_DTLS_SECURITY_TAG, MODEM_KEY_MGMT_CRED_TYPE_IDENTITY, nceKey.PskIdentity, sizeof( nceKey.PskIdentity ) );
+    LOG_DBG( "psk_id status: %d\n", err );
+
+    return err;
+}
+
+/* Configure DTLS socket */
 int dtls_setup( int fd )
 {
     int err;
     int verify;
     int role;
-
-    /* Store DTLS Credentials */
-    err = tls_credential_add( tls_sec_tag[ 0 ], TLS_CREDENTIAL_PSK, nceKey.Psk, strlen( nceKey.Psk ) );
-
-    if( err )
-    {
-        return err;
-    }
-
-    err = tls_credential_add( tls_sec_tag[ 0 ], TLS_CREDENTIAL_PSK_ID, nceKey.PskIdentity, strlen( nceKey.PskIdentity ) );
-
-    if( err )
-    {
-        return err;
-    }
 
     /* Set up DTLS peer verification */
     enum
@@ -117,7 +144,8 @@ int dtls_setup( int fd )
 
     return 0;
 }
-#endif
+
+#endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
 
 
 static int send_coap_post_request( uint8_t * payload,
@@ -125,6 +153,7 @@ static int send_coap_post_request( uint8_t * payload,
 {
     struct coap_packet request;
     uint8_t * data;
+
     data = ( uint8_t * ) k_malloc( MAX_COAP_MSG_LEN );
 
     if( !data )
@@ -132,9 +161,8 @@ static int send_coap_post_request( uint8_t * payload,
         return -ENOMEM;
     }
 
+    int r;
 
-    int r;    
- 
     r = coap_packet_init( &request, data, MAX_COAP_MSG_LEN,
                           COAP_VERSION_1, COAP_TYPE_NON_CON,
                           COAP_TOKEN_MAX_LEN, coap_next_token(),
@@ -174,8 +202,7 @@ static int send_coap_post_request( uint8_t * payload,
 
     r = zsock_send( sock, request.data, request.offset, 0 );
 
-
-        if( r < 0 )
+    if( r < 0 )
     {
         LOG_ERR( "Unable to send CoAP packet" );
         goto end;
@@ -183,10 +210,10 @@ static int send_coap_post_request( uint8_t * payload,
 
 end:
     k_free( data );
-     return r;
+    return r;
 }
 
-#if !defined(CONFIG_NCE_ENERGY_SAVER)
+#if !defined( CONFIG_NCE_ENERGY_SAVER )
 /* Create Payload and send it through CoAP */
 int create_and_send_payload( void )
 {
@@ -199,78 +226,153 @@ int create_and_send_payload( void )
     return err;
 }
 
-#else
+#else /* if !defined( CONFIG_NCE_ENERGY_SAVER ) */
 /* Create Binary Payload and send it through CoAP */
 int create_and_send_binary_payload( void )
 {
     int err = 0;
-    int converted_bytes = 0 ;
-	char message[CONFIG_PAYLOAD_DATA_SIZE];
+    int converted_bytes = 0;
+    char message[ CONFIG_PAYLOAD_DATA_SIZE ];
 
 
     LOG_INF( "\nCoAP client POST (Binary Payload) \n" );
 
 
-    Element2byte_gen_t battery_level = {.type= E_INTEGER,.value.i=99,.template_length=1};
-    Element2byte_gen_t signal_strength = {.type= E_INTEGER,.value.i=84,.template_length=1};
-    Element2byte_gen_t software_version = {.type= E_STRING,.value.s="2.2.1",.template_length=5};
-               
-    converted_bytes = os_energy_save(message,1, 3,battery_level,signal_strength,software_version) ;
+    Element2byte_gen_t battery_level = { .type = E_INTEGER, .value.i = 99, .template_length = 1 };
+    Element2byte_gen_t signal_strength = { .type = E_INTEGER, .value.i = 84, .template_length = 1 };
+    Element2byte_gen_t software_version = { .type = E_STRING, .value.s = "2.2.1", .template_length = 5 };
 
+    converted_bytes = os_energy_save( message, 1, 3, battery_level, signal_strength, software_version );
 
-    if (converted_bytes < 0)
+    if( converted_bytes < 0 )
     {
-        LOG_ERR("os_energy_save error \n");
+        LOG_ERR( "os_energy_save error \n" );
         return converted_bytes;
     }
 
     else
     {
-      err = send_coap_post_request( message, converted_bytes );
+        err = send_coap_post_request( message, converted_bytes );
     }
-    
 
     return err;
 }
-#endif
+#endif /* if !defined( CONFIG_NCE_ENERGY_SAVER ) */
 
 
 
-static void coap_transmission_work_fn(struct k_work *work)
+static void coap_transmission_work_fn( struct k_work * work )
 {
-   
-    #if !defined(CONFIG_NCE_ENERGY_SAVER)
+    #if !defined( CONFIG_NCE_ENERGY_SAVER )
     err = create_and_send_payload();
-	#else
+    #else
     err = create_and_send_binary_payload();
     #endif
 
     if( err < 0 )
     {
-
         LOG_ERR( "\nCoAP client POST err %d \n", err );
     }
     else
     {
         LOG_INF( "\nCoAP client POST SUCCESS \n" );
-        LOG_INF("Waiting... \n");
-		k_work_schedule(&coap_transmission_work,
-					K_SECONDS(CONFIG_COAP_DATA_UPLOAD_FREQUENCY_SECONDS));
+        LOG_INF( "Waiting... \n" );
+        #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+        if( ledBlue.port )
+        {
+            gpio_pin_set_dt( &ledBlue, 0 );
+        }
 
+        if( ledGreen.port )
+        {
+            gpio_pin_set_dt( &ledGreen, 100 );
+        }
+        #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
+        k_work_schedule( &coap_transmission_work,
+                         K_SECONDS( CONFIG_COAP_DATA_UPLOAD_FREQUENCY_SECONDS ) );
+    }
+}
+static void work_init( void )
+{
+    k_work_init_delayable( &coap_transmission_work,
+                           coap_transmission_work_fn );
+}
+
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+void configureLeds()
+{
+    int ret = 0;
+
+    if( ledRed.port && !device_is_ready( ledRed.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledRed.port->name );
+        ledRed.port = NULL;
     }
 
+    if( ledRed.port )
+    {
+        ret = gpio_pin_configure_dt( &ledRed, GPIO_OUTPUT );
 
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledRed.port->name, ledRed.pin );
+            ledRed.port = NULL;
+        }
+    }
+
+    if( ledGreen.port && !device_is_ready( ledGreen.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledGreen.port->name );
+        ledGreen.port = NULL;
+    }
+
+    if( ledGreen.port )
+    {
+        ret = gpio_pin_configure_dt( &ledGreen, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledGreen.port->name, ledGreen.pin );
+            ledGreen.port = NULL;
+        }
+    }
+
+    if( ledBlue.port && !device_is_ready( ledBlue.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledBlue.port->name );
+        ledBlue.port = NULL;
+    }
+
+    if( ledBlue.port )
+    {
+        ret = gpio_pin_configure_dt( &ledBlue, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledBlue.port->name, ledBlue.pin );
+            ledBlue.port = NULL;
+        }
+    }
 }
-static void work_init(void)
-{
-	k_work_init_delayable(&coap_transmission_work,
-						  coap_transmission_work_fn);
-}
-
-
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 void main( void )
 {
     LOG_INF( "1NCE CoAP client sample started\n\r" );
+    #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    configureLeds();
+    k_sleep( K_SECONDS( 10 ) );
+
+    if( ledRed.port )
+    {
+        gpio_pin_set_dt( &ledRed, 100 );
+    }
+    #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
     #if !defined( CONFIG_NRF_MODEM_LIB_SYS_INIT )
     err = nrf_modem_lib_init( NORMAL_MODE );
 
@@ -279,7 +381,7 @@ void main( void )
         LOG_ERR( "Unable to init modem library (%d)", err );
         return;
     }
-    #endif
+    #endif /* if !defined( CONFIG_NRF_MODEM_LIB_SYS_INIT ) */
 
     work_init();
 
@@ -293,28 +395,73 @@ void main( void )
     }
 
     LOG_INF( "OK\n" );
-    
-    #if defined(CONFIG_NCE_ENABLE_DTLS)
-    struct OSNetwork xOSNetwork = { .os_socket = 0 };
 
-    os_network_ops_t osNetwork =
-    {
-        .os_socket             = &xOSNetwork,
-        .nce_os_udp_connect    = nce_os_udp_connect,
-        .nce_os_udp_send       = nce_os_udp_send,
-        .nce_os_udp_recv       = nce_os_udp_recv,
-        .nce_os_udp_disconnect = nce_os_udp_disconnect
-    };
+    #if defined( CONFIG_NCE_ENABLE_DTLS )
+    bool exists;
 
-
-    err = os_auth( &osNetwork, &nceKey );
-
-    if( err )
-    {
-        LOG_ERR( "SDK onboarding failed, err %d\n", errno );
-        return;
-    }
+    #if !defined( CONFIG_OVERWRITE_CREDENTIALS_IF_EXISTS )
+    err = modem_key_mgmt_exists( CONFIG_DTLS_SECURITY_TAG, MODEM_KEY_MGMT_CRED_TYPE_PSK, &exists );
     #endif
+
+    if( IS_ENABLED( CONFIG_OVERWRITE_CREDENTIALS_IF_EXISTS ) || ( ( err == 0 ) && !exists ) )
+    {
+        struct OSNetwork xOSNetwork = { .os_socket = 0 };
+        os_network_ops_t osNetwork =
+        {
+            .os_socket             = &xOSNetwork,
+            .nce_os_udp_connect    = nce_os_udp_connect,
+            .nce_os_udp_send       = nce_os_udp_send,
+            .nce_os_udp_recv       = nce_os_udp_recv,
+            .nce_os_udp_disconnect = nce_os_udp_disconnect
+        };
+
+
+        err = os_auth( &osNetwork, &nceKey );
+
+        if( err )
+        {
+            LOG_ERR( "SDK onboarding failed, err %d\n", errno );
+            return;
+        }
+
+        LOG_INF( "Disconnecting from the network to store credentials\n" );
+        err = lte_lc_offline();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to disconnect from the LTE network, err %d\n", err );
+            return;
+        }
+
+        err = store_credentials();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to store credentials, err %d\n", errno );
+            return;
+        }
+
+        LOG_INF( "Reconnecting after storing credentials.. " );
+        err = lte_lc_connect();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to connect to the LTE network, err %d\n", err );
+            return;
+        }
+    }
+    #endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
+    #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    if( ledRed.port )
+    {
+        gpio_pin_set_dt( &ledRed, 0 );
+    }
+
+    if( ledBlue.port )
+    {
+        gpio_pin_set_dt( &ledBlue, 100 );
+    }
+    #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 
     err = zsock_getaddrinfo( CONFIG_COAP_SERVER_HOSTNAME, NULL, &hints, &res );
 
@@ -326,8 +473,8 @@ void main( void )
 
     ( ( struct sockaddr_in * ) res->ai_addr )->sin_port = htons( CONFIG_COAP_SERVER_PORT );
 
-    #if defined(CONFIG_NCE_ENABLE_DTLS)
-    fd = socket( AF_INET, SOCK_DGRAM | SOCK_NATIVE_TLS, IPPROTO_DTLS_1_2 );
+    #if defined( CONFIG_NCE_ENABLE_DTLS )
+    fd = socket( AF_INET, SOCK_DGRAM, IPPROTO_DTLS_1_2 );
     #else
     fd = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
     #endif
@@ -335,21 +482,19 @@ void main( void )
     if( fd == -1 )
     {
         LOG_ERR( "Failed to open socket!\n" );
-		return;
-
+        return;
     }
 
-    #if defined(CONFIG_NCE_ENABLE_DTLS)
+    #if defined( CONFIG_NCE_ENABLE_DTLS )
     /* Setup DTLS socket options */
     err = dtls_setup( fd );
-    
+
     if( err )
     {
         LOG_ERR( "Failed to Configure DTLS!\n" );
-		return;
-
+        return;
     }
-    #endif
+    #endif /* if defined( CONFIG_NCE_ENABLE_DTLS ) */
 
     LOG_INF( "Connecting to %s\n", CONFIG_COAP_SERVER_HOSTNAME );
 
@@ -358,8 +503,8 @@ void main( void )
     if( err )
     {
         LOG_ERR( "Failed to Connect to CoAP Server!\n" );
-		return;
-
+        return;
     }
-    k_work_schedule(&coap_transmission_work, K_NO_WAIT);
+
+    k_work_schedule( &coap_transmission_work, K_NO_WAIT );
 }

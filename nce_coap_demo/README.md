@@ -27,6 +27,10 @@ CONFIG_NCE_DEVICE_AUTHENTICATOR=n
 
 The configuration options for CoAP sample are:
 
+`CONFIG_DTLS_SECURITY_TAG` DTLS TAG that will be used to store the received credential,set by default to 1111.
+
+`CONFIG_OVERWRITE_CREDENTIALS_IF_EXISTS` If the DTLS TAG already exists in the modem, it will be overwritten with the new credentials (enabled by default).
+
 `CONFIG_COAP_SERVER_HOSTNAME` is set to 1NCE endpoint.
 
 `CONFIG_COAP_SERVER_PORT` is set automatically based on security options (with/without DTLS).

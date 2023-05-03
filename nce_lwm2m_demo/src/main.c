@@ -149,6 +149,39 @@ void configureLeds()
     }
 }
 #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
+
+int store_credentials( void )
+{
+    int err;
+	bool exists=false;
+
+    /* Store Bootstrapping Credentials */
+	 err = modem_key_mgmt_write( CONFIG_LWM2M_CLIENT_UTILS_BOOTSTRAP_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_PSK, CONFIG_NCE_LWM2M_BOOTSTRAP_PSK, sizeof(CONFIG_NCE_LWM2M_BOOTSTRAP_PSK));
+	LOG_DBG("Bootstrap DTLS PSK storage status: %d\n", err);
+
+	err = modem_key_mgmt_write( CONFIG_LWM2M_CLIENT_UTILS_BOOTSTRAP_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_IDENTITY, CONFIG_NCE_ICCID, sizeof(CONFIG_NCE_ICCID));
+	LOG_DBG("Bootstrap DTLS Identity storage status: %d\n", err);
+
+	/* Free LwM2M server Credentials if they exists*/
+	err = modem_key_mgmt_exists( CONFIG_LWM2M_CLIENT_UTILS_SERVER_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_PSK,&exists);
+	LOG_DBG("LwM2M Server DTLS PSK exist status: %d\n", err);
+	err = modem_key_mgmt_exists( CONFIG_LWM2M_CLIENT_UTILS_SERVER_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_IDENTITY,&exists);
+	LOG_DBG("LwM2M Server DTLS Identity exist status: %d\n", err);
+
+	if(err==0 && exists)  {
+	err = modem_key_mgmt_delete( CONFIG_LWM2M_CLIENT_UTILS_SERVER_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_PSK);
+	LOG_DBG("LwM2M Server DTLS PSK Deletion status: %d\n", err);
+	err = modem_key_mgmt_delete( CONFIG_LWM2M_CLIENT_UTILS_SERVER_TLS_TAG, MODEM_KEY_MGMT_CRED_TYPE_IDENTITY);
+	LOG_DBG("LwM2M Server DTLS Identity Deletion status: %d\n", err);
+	}
+	else  {
+	LOG_DBG("No Credentials found\n");
+	}
+
+
+    return err;
+}
+
 static void rd_client_update_lifetime(int srv_obj_inst)
 {
 	char pathstr[MAX_RESOURCE_LEN];
@@ -292,13 +325,6 @@ static int lwm2m_setup(void)
 
 	lwm2m_init_security(&client, endpoint_name, NULL);
 
-	if (sizeof(CONFIG_APP_LWM2M_PSK) > 1) {
-		/* Write hard-coded PSK key to engine */
-		/* First security instance is the right one, because in bootstrap mode, */
-		/* it is the bootstrap PSK. In normal mode, it is the server key */
-		lwm2m_security_set_psk(0, CONFIG_APP_LWM2M_PSK, sizeof(CONFIG_APP_LWM2M_PSK), true,
-				       endpoint_name);
-	}
 	#if defined(CONFIG_LWM2M_CLIENT_UTILS_CELL_CONN_OBJ_SUPPORT)
 	lwm2m_init_cellular_connectivity_object();
 	#endif
@@ -465,6 +491,33 @@ void main( void )
 		LOG_ERR("Unable to init modem_info (%d)", err);
 		return;
 	}
+
+        LOG_INF( "Disconnecting from the network to store credentials\n" );
+        err = lte_lc_offline();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to disconnect from the LTE network, err %d\n", err );
+            return;
+        }
+
+        err = store_credentials();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to store credentials, err %d\n", errno );
+            return;
+        }
+
+        LOG_INF( "Reconnecting after storing credentials.. " );
+        err = lte_lc_connect();
+
+        if( err )
+        {
+            LOG_ERR( "Failed to connect to the LTE network, err %d\n", err );
+            return;
+        }
+
 
 
 	/* Setup LwM2M */

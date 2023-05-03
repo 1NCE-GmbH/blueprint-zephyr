@@ -30,6 +30,23 @@ The configuration options for LwM2M sample are:
 `CONFIG_NCE_ICCID` the ICCID of 1NCE SIM Card.
 
 
+`CONFIG_NCE_LWM2M_BOOTSTRAP_PSK` the bootstrapping PSK, which can be configured while testing the LwM2M integration (From the Device integrator), or from 
+the API [Create Pre-Shared Device Key](https://help.1nce.com/dev-hub/reference/post_v1-integrate-devices-deviceid-presharedkey). 
+
+
+`CONFIG_LWM2M_CLIENT_UTILS_BOOTSTRAP_TLS_TAG` DTLS TAG that will be used to store the bootstrap server credentials, set by default to 1111.
+
+`CONFIG_LWM2M_CLIENT_UTILS_SERVER_TLS_TAG` DTLS TAG that will be used to store the LwM2M server credentials, set by default to 1112, this tag is freed during the initialization to receive the updated credentials from the bootstrap server.
+
+## Unsecure LwM2M Communication 
+
+To test unsecure communication, set the following flags in `prj.conf`
+
+```
+CONFIG_LWM2M_DTLS_SUPPORT=n
+CONFIG_LWM2M_CLIENT_UTILS_SERVER="coap://lwm2m.os.1nce.com:5683"
+``` 
+
 ## Asking for Help
 
 You can ask for help on our email [embedded@1nce.com](mailto:embedded@1nce.com). Please send bug reports and feature requests to GitHub.

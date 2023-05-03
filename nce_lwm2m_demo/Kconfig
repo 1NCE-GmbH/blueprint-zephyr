@@ -1,11 +1,14 @@
 menu "1NCE LwM2M client sample"
 
 
-config APP_LWM2M_PSK
+rsource "src/ui/Kconfig"
+rsource "src/lwm2m/Kconfig"
+
+config NCE_LWM2M_BOOTSTRAP_PSK
 	string "LwM2M pre-shared key for communication"
 	default ""
 	help
-	  Pre Shared Key must be identical to the PSK registered with the device on the LwM2M server.
+	  Pre Shared Key must be identical to the PSK registered with the device on 1NCE LwM2M bootstrap server.
 	  Use the hexadecimal representation.
 
 config NCE_ICCID

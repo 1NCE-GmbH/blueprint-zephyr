@@ -9,11 +9,30 @@
 
 // LwM2M 
 #include <zephyr/net/lwm2m.h>
+#include <app_event_manager.h>
 #include <date_time.h>
 #include <modem/modem_info.h>
 #include <net/lwm2m_client_utils.h>
+#include "lwm2m_app_utils.h"
 #include "lwm2m_engine.h"
 #include "date_time.h"
+#include <modem/modem_key_mgmt.h>
+#include <lwm2m_client_app.h>
+#include <lwm2m_resource_ids.h>
+
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+#include <zephyr/drivers/gpio.h>
+
+/*
+ * Thingy:91 LEDs
+ */
+static struct gpio_dt_spec ledRed = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led0 ), gpios,
+                                                         { 0 } );
+static struct gpio_dt_spec ledGreen = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led1 ), gpios,
+                                                           { 0 } );
+static struct gpio_dt_spec ledBlue = GPIO_DT_SPEC_GET_OR( DT_ALIAS( led2 ), gpios,
+                                                          { 0 } );
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 
 LOG_MODULE_REGISTER( LWM2M_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 
@@ -66,6 +85,70 @@ static void date_time_event_handler(const struct date_time_evt *evt)
 		break;
 	}
 }
+
+#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+void configureLeds()
+{
+    int ret = 0;
+
+    if( ledRed.port && !device_is_ready( ledRed.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledRed.port->name );
+        ledRed.port = NULL;
+    }
+
+    if( ledRed.port )
+    {
+        ret = gpio_pin_configure_dt( &ledRed, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledRed.port->name, ledRed.pin );
+            ledRed.port = NULL;
+        }
+    }
+
+    if( ledGreen.port && !device_is_ready( ledGreen.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledGreen.port->name );
+        ledGreen.port = NULL;
+    }
+
+    if( ledGreen.port )
+    {
+        ret = gpio_pin_configure_dt( &ledGreen, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledGreen.port->name, ledGreen.pin );
+            ledGreen.port = NULL;
+        }
+    }
+
+    if( ledBlue.port && !device_is_ready( ledBlue.port ) )
+    {
+        printk( "Error %d: LED device %s is not ready; ignoring it\n",
+                ret, ledBlue.port->name );
+        ledBlue.port = NULL;
+    }
+
+    if( ledBlue.port )
+    {
+        ret = gpio_pin_configure_dt( &ledBlue, GPIO_OUTPUT );
+
+        if( ret != 0 )
+        {
+            printk( "Error %d: failed to configure LED device %s pin %d\n",
+                    ret, ledBlue.port->name, ledBlue.pin );
+            ledBlue.port = NULL;
+        }
+    }
+}
+#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
 static void rd_client_update_lifetime(int srv_obj_inst)
 {
 	char pathstr[MAX_RESOURCE_LEN];
@@ -136,6 +219,24 @@ static void rd_client_event(struct lwm2m_ctx *client, enum lwm2m_rd_client_event
 
 	case LWM2M_RD_CLIENT_EVENT_REGISTRATION_COMPLETE:
 		LOG_DBG("Registration complete");
+		
+		#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+        if( ledBlue.port )
+        {
+            gpio_pin_set_dt( &ledBlue, 0 );
+        }
+
+        if( ledGreen.port )
+        {
+        	gpio_pin_set_dt( &ledGreen, 100 );
+			char lwm2m_path[MAX_LWM2M_PATH_LEN];
+			snprintk(lwm2m_path, MAX_LWM2M_PATH_LEN, "%d/%u/%d", IPSO_OBJECT_LIGHT_CONTROL_ID,
+					0, ON_OFF_RID);
+			lwm2m_engine_set_bool(lwm2m_path, true);
+
+        }
+        #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
+
 		state_trigger_and_unlock(CONNECTED);
 		break;
 
@@ -182,6 +283,13 @@ static void rd_client_event(struct lwm2m_ctx *client, enum lwm2m_rd_client_event
 }
 static int lwm2m_setup(void)
 {
+
+	#if defined(CONFIG_LWM2M_CLIENT_UTILS_DEVICE_OBJ_SUPPORT)
+	/* Manufacturer independent */
+	lwm2m_init_device();
+	#endif
+
+
 	lwm2m_init_security(&client, endpoint_name, NULL);
 
 	if (sizeof(CONFIG_APP_LWM2M_PSK) > 1) {
@@ -191,6 +299,21 @@ static int lwm2m_setup(void)
 		lwm2m_security_set_psk(0, CONFIG_APP_LWM2M_PSK, sizeof(CONFIG_APP_LWM2M_PSK), true,
 				       endpoint_name);
 	}
+	#if defined(CONFIG_LWM2M_CLIENT_UTILS_CELL_CONN_OBJ_SUPPORT)
+	lwm2m_init_cellular_connectivity_object();
+	#endif
+	
+	#if defined(CONFIG_LWM2M_APP_LIGHT_CONTROL)
+	lwm2m_init_light_control();
+	#endif
+
+	#if defined(CONFIG_LWM2M_APP_PUSH_BUTTON)
+		lwm2m_init_push_button();
+	#endif
+
+	#if defined(CONFIG_LWM2M_APP_BUZZER)
+		lwm2m_init_buzzer();
+	#endif
 
 	if (IS_ENABLED(CONFIG_LWM2M_CLIENT_UTILS_RAI)) {
 		lwm2m_init_rai();
@@ -293,10 +416,29 @@ void main( void )
     int ret;
 	uint32_t bootstrap_flags = 0;
     LOG_INF("Run LWM2M client\n\r");
+
+    #if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+    configureLeds();
+    k_sleep( K_SECONDS( 10 ) );
+
+    if( ledRed.port )
+    {
+        gpio_pin_set_dt( &ledRed, 100 );
+    }
+    #endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
+
+
 	if (strlen(CONFIG_NCE_ICCID) < 1) {
 		LOG_ERR("[1NCE] Failed to read CONFIG_NCE_ICCID ");
 		return;
 	}
+
+	ret = app_event_manager_init();
+	if (ret) {
+		LOG_ERR("Unable to init Application Event Manager (%d)", ret);
+		return;
+	}
+
     #if !defined( CONFIG_NRF_MODEM_LIB_SYS_INIT )
     err = nrf_modem_lib_init( NORMAL_MODE );
 
@@ -352,6 +494,19 @@ void main( void )
 		case BOOTSTRAP:
 			state_set_and_unlock(BOOTSTRAP);
 			LOG_INF("LwM2M is boosttrapping");
+
+			#if defined( CONFIG_BOARD_THINGY91_NRF9160_NS )
+			if( ledRed.port )
+			{
+				gpio_pin_set_dt( &ledRed, 0 );
+			}
+
+			if( ledBlue.port )
+			{
+				gpio_pin_set_dt( &ledBlue, 100 );
+			}
+			#endif /* if defined( CONFIG_BOARD_THINGY91_NRF9160_NS ) */
+
 			break;
 
 		case CONNECTING:

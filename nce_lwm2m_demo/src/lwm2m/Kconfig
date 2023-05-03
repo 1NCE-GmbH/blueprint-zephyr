@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2021 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+
+config LWM2M_APP_PUSH_BUTTON
+	bool
+	select LWM2M_IPSO_PUSH_BUTTON
+	select UI_INPUT
+	help
+	  Create button LWM2M object(s).
+	  The nRF9160 DK will have two object instances, one for each push button.
+
+
+config LWM2M_APP_BUZZER
+	bool
+	select LWM2M_IPSO_BUZZER
+	depends on UI_BUZZER
+	help
+	  Create a buzzer LWM2M object.
+	  Should not be enabled on the nRF9160 DK, as it has no buzzer.
+
+config LWM2M_APP_LIGHT_CONTROL
+	bool
+	depends on LWM2M_IPSO_LIGHT_CONTROL
+	depends on UI_LED
+	help
+	  Create light control LWM2M object(s).
+	  The nRF9160 DK will have multiple object instances (one for each LED), if UI_LED_USE_GPIO is
+	  chosen.

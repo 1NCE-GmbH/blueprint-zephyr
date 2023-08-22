@@ -26,16 +26,29 @@ static struct gpio_dt_spec ledBlue = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led2), gpios,
 LOG_MODULE_REGISTER( UDP_CLIENT, CONFIG_LOG_DEFAULT_LEVEL );
 #define UDP_IP_HEADER_SIZE 28
 
-static int client_fd;
+static int client_fd, recv_fd;
 static struct k_work_delayable server_transmission_work;
+static struct k_work_delayable control_recv_work;
 static struct addrinfo * res;
 static struct addrinfo hints =
 {
     .ai_family   = AF_INET,
     .ai_socktype = SOCK_DGRAM,
 };
+static struct addrinfo * control_recv;
+static struct addrinfo hints_control_recv =
+{
+    .ai_family   = AF_INET,
+    .ai_socktype = SOCK_DGRAM,
+};
+int hints_control_recv_struct_length = sizeof(hints_control_recv);
+struct k_thread thread_recv,thread_send;
 
-
+#define STACK_SIZE 512
+#define STACK_SIZE2 2048
+#define THREAD_PRIORITY 5
+K_THREAD_STACK_DEFINE(thread_stack, STACK_SIZE);
+K_THREAD_STACK_DEFINE(thread_stack2, STACK_SIZE2);
 
 K_SEM_DEFINE(lte_connected, 0, 1);
 
@@ -128,11 +141,64 @@ static void server_transmission_work_fn(struct k_work *work)
 	k_work_schedule(&server_transmission_work,
 			K_SECONDS(CONFIG_UDP_DATA_UPLOAD_FREQUENCY_SECONDS));
 }
+static void reciever_work_fn(struct k_work *work)
+{
+	char buffer[256];
+	struct sockaddr_in my_addr = {
+    .sin_family = AF_INET,
+    .sin_addr.s_addr = htonl(INADDR_ANY),
+    .sin_port = htons(CONFIG_NCE_RECV_PORT)
+	};
+  
+    // Create socket
+    recv_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(recv_fd < 0){
+        printk("Error while creating socket\n");
+        goto cleanup;
+    }
+    printf("Socket created successfully\n");
 
+	// Bind to the set port and IP:
+    if(zsock_bind(recv_fd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in)) < 0){
+        printk("Couldn't bind to the port\n");
+		goto cleanup;
+    }
+    printk("Listening for incoming messages...\n\n");
+
+    // Set the timeout value
+    struct timeval timeout;
+    timeout.tv_sec = 60;  // Timeout of 20 seconds
+    timeout.tv_usec = 0;
+
+    // Set the socket option for timeout
+    if (setsockopt(recv_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("failed to set the socket option for timeout");
+		goto cleanup;
+    }
+
+    ssize_t received_bytes = recvfrom(recv_fd, buffer, sizeof(buffer)-1, 0,
+         (struct sockaddr*)control_recv, &hints_control_recv_struct_length); 
+	if (received_bytes < 0)  {
+        printf("No message received\n");
+        goto cleanup;
+    }
+
+	buffer[received_bytes] = '\0';
+	printk("Received message: %s\n", buffer);
+	k_work_schedule(&control_recv_work,
+			K_SECONDS(CONFIG_UDP_DATA_UPLOAD_FREQUENCY_SECONDS));
+
+cleanup:
+    close(recv_fd);
+    return;
+}
 static void work_init(void)
 {
 	k_work_init_delayable(&server_transmission_work,
 			      server_transmission_work_fn);
+	k_work_init_delayable(&control_recv_work,
+			      reciever_work_fn);
+				  
 }
 
 #if defined(CONFIG_NRF_MODEM_LIB)
@@ -302,7 +368,20 @@ error:
 
 	return err;
 }
-
+void background_thread_func() {
+    while (1) {
+        // If a message is received or event occurs, schedule the work
+        k_work_schedule(&control_recv_work, K_NO_WAIT);
+		k_sleep(K_SECONDS(2));
+    }
+}
+void front_thread_func() {
+    while (1) {
+        // Sending the UDP Packet
+        k_work_schedule(&server_transmission_work, K_NO_WAIT);
+		k_sleep(K_SECONDS(1));
+    }
+}
 void main(void)
 {
 	int err;
@@ -360,6 +439,20 @@ void main(void)
 		printk("Not able to connect to UDP server\n");
 		return;
 	}
+	k_tid_t thread_recv_id = k_thread_create(&thread_recv, thread_stack,
+                                        K_THREAD_STACK_SIZEOF(thread_stack),
+                                        background_thread_func,
+                                        NULL, NULL, NULL,
+                                        THREAD_PRIORITY, 0, K_NO_WAIT);
+	k_tid_t thread_send_id = k_thread_create(&thread_send, thread_stack2,
+                                        K_THREAD_STACK_SIZEOF(thread_stack2),
+                                        front_thread_func,
+                                        NULL, NULL, NULL,
+                                        THREAD_PRIORITY, 0, K_NO_WAIT);
+	// Start the thread
+	k_thread_start(thread_send_id);
+	k_thread_start(thread_recv_id);
 
-	k_work_schedule(&server_transmission_work, K_NO_WAIT);
+	// Delay or wait for the threads to complete
+    k_sleep(K_SECONDS(2));  // Delay for 2 seconds
 }

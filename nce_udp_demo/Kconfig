@@ -19,7 +19,15 @@ config UDP_SERVER_HOSTNAME
 config UDP_SERVER_PORT
 	int "UDP server port number"
 	default "4445"
-	
+
+config NCE_RECV_PORT
+	int "UDP receive port number"
+	default "3000"	
+
+config NCE_RECEIVE_BUFFER_SIZE
+	int "The size of the buffer that will be used to receive the incoming data"
+	default 256	
+
 if !NCE_ENERGY_SAVER
 
 config PAYLOAD

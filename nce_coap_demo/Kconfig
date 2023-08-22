@@ -19,6 +19,13 @@ config COAP_DATA_UPLOAD_FREQUENCY_SECONDS
 	int "Upload Frequency in Seconds"
 	default 20
 
+config NCE_RECV_PORT
+	int "CoAP receive port number"
+	default "3000"
+		
+config NCE_RECEIVE_BUFFER_SIZE
+	int "The size of the buffer that will be used to receive the incoming data"
+	default 256	
 
 if NCE_DEVICE_AUTHENTICATOR
 config NCE_ENABLE_DTLS

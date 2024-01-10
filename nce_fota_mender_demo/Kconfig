@@ -1,0 +1,137 @@
+rsource "src/lib/custom_download_client/Kconfig"
+rsource "src/lib/custom_fota_download/Kconfig"
+
+menu "1NCE FOTA Mender demo"
+
+config APPLICATION_VERSION
+	int "Mender application version"
+	default 1
+
+config ARTIFACT_NAME
+	string "Mender articat name"
+	default "test"
+
+config USE_HTTPS
+	bool
+	prompt "Use HTTPS for download"
+
+config COAP_SERVER_HOSTNAME
+	string "CoAP server hostname"
+	default "coap.os.1nce.com"
+
+config MENDER_URL
+	string "Mender server URL"
+	default "eu.hosted.mender.io"
+
+config COAP_SERVER_PORT
+	int "CoAP server port"
+	default 5684 if NCE_DEVICE_AUTHENTICATOR
+	default 5683 
+
+config COAP_URI_QUERY
+	string "CoAP URI Query"
+	help
+	   "the URI Query option used to set the MQTT topic for 1NCE IoT integrator"
+	default "t=test"
+
+config MENDER_FW_UPDATE_CHECK_FREQUENCY_SECONDS
+	int "Firmware Update check Frequency in Seconds"
+	default 30
+
+config MENDER_AUTH_CHECK_FREQUENCY_SECONDS
+	int "Authentication Status Frequency in Seconds"
+	default 15
+
+
+if NCE_DEVICE_AUTHENTICATOR
+config NCE_ENABLE_DTLS
+	bool
+	default y
+config DTLS_SECURITY_TAG
+	int "DTLS TAG that will be used to store the received credentials"
+	default 1111
+
+config OVERWRITE_CREDENTIALS_IF_EXISTS
+	bool "If the DTLS TAG already exists in the modem, it will be overwritten with the new credentials"
+	default y
+endif
+
+config MENDER_DEVICE_TYPE
+	string "Mender device type"
+	default "thingy"
+
+config LED_THREAD_STACK_SIZE
+	int "LED Thread Stack Size (bytes)"
+	default 512
+	help
+	  Sets the stack size (in bytes) for the LED thread.
+
+choice
+	prompt "LED indication"
+	default LED_INDICATION_PWM if BOARD_THINGY91_NRF9160_NS
+	default LED_INDICATION_GPIO if BOARD_NRF9160DK_NRF9160_NS || $(dt_compat_enabled,gpio-leds)
+	default LED_INDICATION_DISABLED
+
+	config LED_INDICATION_PWM
+		select LED
+		select LED_PWM
+		select PWM
+		bool "Enable LED indication using the pwm-leds driver"
+
+	config LED_INDICATION_GPIO
+		select LED
+		select LED_GPIO
+		bool "Enable LED indication using the gpio-leds driver"
+
+	config LED_INDICATION_DISABLED
+		bool "Disable LED indication"
+endchoice
+
+choice
+	prompt "LED indication LED type"
+	depends on !LED_INDICATION_DISABLED
+	default LED_INDICATOR_RGB if BOARD_THINGY91_NRF9160_NS && LED_INDICATION_PWM
+	default LED_INDICATOR_4LED if !LED_INDICATION_DISABLED
+	default LED_INDICATOR_NONE
+
+	config LED_INDICATOR_RGB
+		depends on LED_INDICATION_PWM
+		bool "A single RGB LED"
+
+	config LED_INDICATOR_4LED
+		depends on !LED_INDICATION_DISABLED
+		bool "Four binary LEDs"
+
+	config LED_INDICATOR_NONE
+		depends on LED_INDICATION_DISABLED
+		bool "No indicator LEDs"
+
+endchoice
+
+config LED_VERBOSE_INDICATION
+	depends on !LED_INDICATION_DISABLED
+	bool "Enables extra LED status indications"
+	default y
+
+config LED_CONTINUOUS_INDICATION
+	depends on !LED_INDICATION_DISABLED
+	bool "Show an idle pattern instead of turning LEDs off"
+	default y
+
+if !NCE_ENERGY_SAVER
+config PAYLOAD
+	string "Message to send to 1NCE Iot Integrator"
+	default "Hi, this is a test message!"
+endif
+
+if NCE_ENERGY_SAVER	
+config PAYLOAD_DATA_SIZE
+	int "payload data size"
+	default 10
+endif
+
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu

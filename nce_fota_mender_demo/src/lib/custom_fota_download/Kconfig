@@ -1,0 +1,44 @@
+#
+# Copyright (c) 2019 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menuconfig CUSTOM_FOTA_DOWNLOAD
+	bool "FOTA Download"
+	depends on CUSTOM_DOWNLOAD_CLIENT
+	depends on DFU_TARGET
+	imply FW_INFO
+
+if (CUSTOM_FOTA_DOWNLOAD)
+
+config CUSTOM_FOTA_SOCKET_RETRIES
+	int "Number of retries for socket-related download issues"
+	default 2
+
+config CUSTOM_FOTA_DOWNLOAD_PROGRESS_EVT
+	bool "Emit progress event upon receiving a download fragment"
+
+config CUSTOM_FOTA_CLIENT_AUTOSCHEDULE_UPDATE
+	bool "Mark target images to be updated when downloaded"
+	default y
+
+config CUSTOM_FOTA_DOWNLOAD_MCUBOOT_FLASH_BUF_SZ
+	int "Size of buffer used for flash write operations during MCUboot updates"
+	depends on DFU_TARGET_MCUBOOT
+	default 512
+	help
+	  Buffer size must be aligned to the minimal flash write block size
+
+config CUSTOM_FOTA_DOWNLOAD_NATIVE_TLS
+	bool "Enable native TLS socket"
+	help
+	  Enabling this option will configure the socket to be native for TLS
+	  instead of offloading TLS operations to the modem.
+
+module=CUSTOM_FOTA_DOWNLOAD
+module-dep=LOG
+module-str=Firmware Over the Air Download
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+endif # CUSTOM_FOTA_DOWNLOAD

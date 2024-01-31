@@ -1,0 +1,35 @@
+name: Build and Push Firmware
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Build Firmware
+        run: |
+          # Install west in the environment
+          docker run -i --rm \
+          -v ${PWD}:/workdir/project \
+          -w /workdir/project \
+          jamalii/nce-nrf-sdk:latest \
+          bash < demo_script.sh
+        shell: bash
+
+      - name: push Firmwares
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add ./plugin_system/nce_fota_mender_demo/thingy_binaries/*
+          git add ./nce_udp_demo/thingy_binaries/*
+          git add ./nce_coap_demo/thingy_binaries/*
+          git commit -m "Add binaries"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

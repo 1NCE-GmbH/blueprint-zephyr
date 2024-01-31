@@ -12,7 +12,7 @@ For `Thingy:91`, the LED colors indicate the following statuses:
 - `Blue`  the device is  on firmware version 2.
 
 
-To install Mender plugin, follow the instructions in [Mender Plugin dev-hub documentation](https://help.1nce.com/dev-hub/docs/1nce-os-plugins-mender). 
+To install Mender plugin, follow the instructions in [Mender Plugin dev-hub documentation](https://help.1nce.com/dev-hub/docs/1nce-os-plugins-fota-management-mender). 
 
 ## Running the demo
 
@@ -28,6 +28,8 @@ To install Mender plugin, follow the instructions in [Mender Plugin dev-hub docu
 
 
 ## Artifact Creation
+
+### Note: You can use the pre-created Artifact and Firmware in [FOTA with Mender Demo Firmware](./thingy_binaries)
 
 1. Download   [Mender-artifact tool](https://docs.mender.io/downloads#mender-artifact). 
 

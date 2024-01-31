@@ -70,6 +70,26 @@ To show the Log press `NRF TERMINAL`
 * Press Start Terminal with new configuration.
 * Press Serial Port 
 * Choose the Port used by nRF DK
+  
+## Testing Instructions for Thingy:91
+
+To easily test our default setup, follow these steps using the provided binaries for the specific demo you wish to assess on the Thingy:91:
+
+1. Begin by removing the plastic covering from the Thingy:91.
+2. Ensure that the Thingy:91 is connected to your computer using a micro-USB cable.
+3. Put the Thingy:91 into DFU mode by first powering it off, then pressing the black button while switching to the ON position.
+4. Launch the [nRF Connect for Desktop application](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop) and open the Programmer tool.
+5. Click on "SELECT DEVICE" and choose the Thingy:91 entry from the drop-down list.
+6. In the left menu, select "Add file" in the File section, and then click "Browse". Choose the XXX.hex file in the thingy_binaries folder.
+7. Scroll down and ensure that "Enable MCUboot" is selected in the left menu.
+8. Click on "write" in the left menu. This action opens the MCUboot DFU window. Press the "write" button in the MCUboot DFU window.
+9. Once the update is complete, a "Completed successfully" message will appear.
+
+This demo includes the following firmware options:
+
+* [CoAP Demo Firmware](./nce_coap_demo/thingy_binaries)
+* [UDP Demo Firmware](./nce_udp_demo/thingy_binaries)
+* [FOTA with Mender Demo Firmware](./plugin_system/nce_fota_mender_demo/thingy_binaries)
 
 ## Asking for Help
 

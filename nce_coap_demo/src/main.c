@@ -220,7 +220,7 @@ end:
     return r;
 }
 
-static int send_coap_ack( int sock, struct coap_packet *packet,const struct sockaddr *addr, socklen_t addr_len )
+static int send_coap_ack( int sock, struct coap_packet *packet, const struct sockaddr *addr, socklen_t addr_len )
 {
     int r;	
     struct coap_packet ack;

@@ -58,16 +58,9 @@ struct addrinfo hints =
     .ai_family   = AF_INET,
     .ai_socktype = SOCK_DGRAM,
 };
-static struct addrinfo * control_recv;
-static struct addrinfo hints_control_recv =
-{
-    .ai_family   = AF_INET,
-    .ai_socktype = SOCK_DGRAM,
-};
 
 static struct k_work_delayable coap_transmission_work;
 static struct k_work_delayable control_recv_work;
-int hints_control_recv_struct_length = sizeof(hints_control_recv);
 struct k_thread thread_recv,thread_send;
 
 #define STACK_SIZE 512
@@ -227,6 +220,37 @@ end:
     return r;
 }
 
+static int send_coap_ack( int sock, struct coap_packet *packet,const struct sockaddr *addr, socklen_t addr_len )
+{
+    int r;	
+    struct coap_packet ack;
+    uint8_t * data;
+
+    data = ( uint8_t * ) k_malloc( MAX_COAP_MSG_LEN );
+    if( !data )
+    {
+        return -ENOMEM;
+    }
+
+    r =  coap_ack_init( &ack, packet, data, MAX_COAP_MSG_LEN, COAP_RESPONSE_CODE_CHANGED );
+    if( r < 0 )
+    {
+        LOG_ERR( "Failed to init CoAP ACK \n" );
+        goto end;
+    }
+
+    r = sendto( sock, ack.data, ack.offset, 0, addr,addr_len );
+    if( r < 0 )
+    {
+        LOG_ERR( "Unable to send CoAP ACK \n" );
+        goto end;
+    }
+
+end:
+    k_free( data );
+    return r;
+}
+
 #if !defined( CONFIG_NCE_ENERGY_SAVER )
 /* Create Payload and send it through CoAP */
 int create_and_send_payload( void )
@@ -375,6 +399,7 @@ void print_coap_message(struct coap_packet *packet) {
 
 static void reciever_work_fn(struct k_work *work)
 {
+    int r;
 	char buffer[CONFIG_NCE_RECEIVE_BUFFER_SIZE];
     static int recv_fd;
     struct coap_packet response;
@@ -383,7 +408,9 @@ static void reciever_work_fn(struct k_work *work)
     .sin_addr.s_addr = htonl(INADDR_ANY),
     .sin_port = htons(CONFIG_NCE_RECV_PORT)
 	};
-  
+  	struct sockaddr sender_addr;
+	socklen_t sender_addr_len = sizeof(sender_addr);
+
     // Create socket
     recv_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(recv_fd < 0){
@@ -410,8 +437,7 @@ static void reciever_work_fn(struct k_work *work)
 		goto cleanup;
     }
 
-    ssize_t received_bytes = recvfrom(recv_fd, buffer, sizeof(buffer)-1, 0,
-         (struct sockaddr*)control_recv, &hints_control_recv_struct_length); 
+    ssize_t received_bytes = recvfrom(recv_fd, buffer, sizeof(buffer)-1, 0,&sender_addr, &sender_addr_len); 
 	if (received_bytes < 0)  {
         printf("No message received\n");
         goto cleanup;
@@ -423,6 +449,18 @@ static void reciever_work_fn(struct k_work *work)
 	printk("Received message:\n");
     // Print the entire CoAP message
     print_coap_message(&response);
+
+    // Reply with CoAP ACK
+    r = send_coap_ack(recv_fd, &response, &sender_addr, sender_addr_len);
+    if(r < 0){
+        LOG_ERR( "CoAP ACK err %d \n", r );
+        goto cleanup;
+    }
+    else
+    {
+        LOG_INF( "CoAP ACK SUCCESS \n" );
+    }
+
 	k_work_schedule(&control_recv_work,
 			K_SECONDS(100));
 

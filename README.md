@@ -22,7 +22,8 @@ Follow this guide to:
 * Build, flash, and run Secure CoAP Application.
 
 ### Prerequisites
-* [nRF Connect SDK (v2.2.0)](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.2.0/nrf/gs_assistant.html)
+* For Memfault demo: [nRF Connect SDK (v2.8.0)](https://docs.nordicsemi.com/bundle/ncs-2.8.0/page/nrf/gsg_guides.html)
+* For Other demos: [nRF Connect SDK (v2.2.0)](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.2.0/nrf/gs_assistant.html)
 * [VS Code)](https://code.visualstudio.com/)
 * [West](https://docs.zephyrproject.org/3.1.0/develop/west/install.html)
 

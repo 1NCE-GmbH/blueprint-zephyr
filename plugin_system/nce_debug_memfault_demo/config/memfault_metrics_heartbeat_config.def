@@ -1,0 +1,18 @@
+/* Application-specific metrics can be defined here.
+ * Please refer to https://docs.memfault.com/docs/embedded/metrics-api for more details.
+ */
+
+MEMFAULT_METRICS_KEY_DEFINE(switch_1_toggle_count, kMemfaultMetricType_Unsigned)
+
+#if defined(CONFIG_NCE_MEMFAULT_DEMO_COAP_SYNC_METRICS)
+MEMFAULT_METRICS_KEY_DEFINE(sync_memfault_successful, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(sync_memfault_failure, kMemfaultMetricType_Unsigned)
+#endif /* CONFIG_NCE_MEMFAULT_DEMO_COAP_SYNC_METRICS */
+
+#if defined(CONFIG_NCE_MEMFAULT_DEMO_CONNECTIVITY_METRICS)
+MEMFAULT_METRICS_STRING_KEY_DEFINE(ncs_lte_nce_operator, 50)
+MEMFAULT_METRICS_STRING_KEY_DEFINE(ncs_lte_nce_bands, 50)
+MEMFAULT_METRICS_STRING_KEY_DEFINE(ncs_lte_nce_apn, 50)
+MEMFAULT_METRICS_KEY_DEFINE(ncs_lte_nce_rsrp_dbm, kMemfaultMetricType_Signed)
+MEMFAULT_METRICS_KEY_DEFINE(ncs_lte_nce_current_band, kMemfaultMetricType_Unsigned)
+#endif /* CONFIG_NCE_MEMFAULT_DEMO_CONNECTIVITY_METRICS */

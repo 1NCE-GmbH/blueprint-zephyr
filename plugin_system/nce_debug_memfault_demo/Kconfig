@@ -1,0 +1,40 @@
+#
+# Copyright (c) 2024 1NCE
+#
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+
+config NCE_MEMFAULT_DEMO_PERIODIC_UPDATE
+bool "Enable periodic Memfault updates"
+default y
+
+config NCE_MEMFAULT_DEMO_PERIODIC_UPDATE_FREQUENCY_SECONDS
+	int "Update frequency (in seconds)"
+	depends on NCE_MEMFAULT_DEMO_PERIODIC_UPDATE
+	default 30
+
+config NCE_MEMFAULT_DEMO_CONNECTIVITY_METRICS
+bool "Collect Additional connectivity metrics"
+default y
+
+config NCE_MEMFAULT_DEMO_COAP_SYNC_METRICS
+	bool "Enable sync success/failure metrics"
+	default y
+
+config NCE_MEMFAULT_DEMO_PRINT_HEARTBEAT_METRICS
+bool "Print the collected heartbeat metrics"
+default y
+
+config NCE_MEMFAULT_DEMO_DISCONNECT_DURATION_SECONDS
+int "Disconnect command duration (in seconds)"
+default 20
+
+config NCE_MEMFAULT_DEMO_ENABLE_DTLS
+bool "Enable DTLS for CoAP Proxy communication"
+default n
+
+module = NCE_MEMFAULT_DEMO
+module-str = NCE Memfault Demo
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
